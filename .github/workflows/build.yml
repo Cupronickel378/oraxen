@@ -1,21 +1,44 @@
-name: Manual Build
+name: Build Oraxen Official
 on:
+  push:
+    branches: [ master, main ]
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
-      - name: Build with Gradle
-        run: ./gradlew build
-     - name: Upload Artifact
+          cache: 'gradle'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build Oraxen
+        # Мы запускаем полную сборку всех модулей
+        run: ./gradlew build shadowJar --no-daemon
+
+      - name: Prepare Final Files
+        # Эта магия соберет только нужные JAR в одну папку перед отправкой тебе
+        run: |
+          mkdir -p final_jar
+          find platforms/paper/build/libs/ -name "*.jar" ! -name "*-dev.jar" ! -name "*-sources.jar" -exec cp {} ./final_jar/ \;
+          find core/build/libs/ -name "*.jar" ! -name "*-dev.jar" ! -name "*-sources.jar" -exec cp {} ./final_jar/ \;
+
+      - name: Upload Result
         uses: actions/upload-artifact@v6
         with:
-          name: Oraxen-All-Platforms
-          path: "**/build/libs/*.jar"
+          name: Oraxen-Ready-To-Use
+          path: final_jar/*.jar
